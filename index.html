@@ -3,123 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Go Distance Tracker</title>
+    <title>Go Distance Tracker v2</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
-        body { background-color: #121212; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        .card { background: #1e1e1e; width: 90%; max-width: 400px; padding: 30px; border-radius: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #333; }
-        h2 { font-size: 1.2rem; color: #bbb; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
-        .distance-display { font-size: 5rem; font-weight: bold; color: #00ff88; margin: 10px 0; }
-        .unit { font-size: 1.5rem; color: #888; margin-bottom: 30px; }
-        .status { font-size: 0.9rem; color: #ffcc00; margin-bottom: 20px; min-height: 20px; }
-        .controls button { width: 100%; padding: 20px; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 15px; cursor: pointer; transition: 0.3s; margin-bottom: 15px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: #000; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; }
+        .card { background: #111; width: 90%; max-width: 400px; padding: 40px 20px; border-radius: 40px; border: 2px solid #333; }
+        .distance { font-size: 5.5rem; font-weight: 900; color: #00ff88; line-height: 1; }
+        .unit { font-size: 1.2rem; color: #888; margin-bottom: 30px; letter-spacing: 2px; }
+        .accuracy { font-size: 0.8rem; color: #ffcc00; margin-bottom: 20px; }
+        button { width: 100%; padding: 20px; font-size: 1.3rem; font-weight: bold; border: none; border-radius: 20px; cursor: pointer; transition: 0.3s; }
         #startBtn { background: #00ff88; color: #000; }
-        #startBtn:active { transform: scale(0.95); }
-        #stopBtn { background: #ff4444; color: white; display: none; }
-        .footer { font-size: 0.8rem; color: #555; margin-top: 10px; }
+        #stopBtn { background: #ff3333; color: white; display: none; }
+        .info { margin-top: 15px; font-size: 0.8rem; color: #555; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>ርቀት መለኪያ</h2>
-    <div class="distance-display" id="kmDisplay">0.00</div>
-    <div class="unit">KM (ኪሎሜትር)</div>
+    <div id="accDisplay" class="accuracy">GPS በመፈለግ ላይ...</div>
+    <div class="distance" id="kmDisplay">0.00</div>
+    <div class="unit">ኪሎሜትር (KM)</div>
     
-    <div class="status" id="statusLine">ለመጀመር Start ይጫኑ</div>
-
-    <div class="controls">
-        <button id="startBtn" onclick="toggleTracking()">ጀምር (START)</button>
-        <button id="stopBtn" onclick="toggleTracking()">አቁም (STOP)</button>
-    </div>
-
-    <div class="footer">Gondar Online Market Tracker</div>
+    <button id="startBtn" onclick="startTracking()">ጀምር (START)</button>
+    <button id="stopBtn" onclick="stopTracking()">አቁም (STOP)</button>
+    
+    <div class="info">ለበለጠ ትክክለኛነት ክፍት ቦታ ይውጡ</div>
 </div>
 
 <script>
     let watchId = null;
     let totalDistance = 0;
     let lastCoords = null;
-    let isTracking = false;
+    let isFirstPoint = true;
 
-    const kmDisplay = document.getElementById('kmDisplay');
-    const statusLine = document.getElementById('statusLine');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-
-    // ርቀት በ KM ማስያ (Haversine Formula)
     function calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // የምድር ራዲየስ
+        const R = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
-                const dLon = (lon2 - lon1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                   Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                   Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    function toggleTracking() {
-        if (!isTracking) {
-            startTracking();
-        } else {
-            stopTracking();
-        }
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
     function startTracking() {
-        if (!navigator.geolocation) {
-            alert("ስልክዎ GPS አይደግፍም!");
-            return;
-        }
+        if (!navigator.geolocation) return alert("GPS አይሰራም!");
 
-        isTracking = true;
         totalDistance = 0;
         lastCoords = null;
-        kmDisplay.innerText = "0.00";
-        startBtn.style.display = "none";
-        stopBtn.style.display = "block";
-        statusLine.innerText = "በመለካት ላይ... GPS ነቅቷል ✅";
+        isFirstPoint = true;
+        document.getElementById('kmDisplay').innerText = "0.00";
+        document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'block';
 
         watchId = navigator.geolocation.watchPosition(position => {
             const { latitude, longitude, accuracy } = position.coords;
+            
+            // የ GPS ጥራትን ማሳያ
+            document.getElementById('accDisplay').innerText = "ጥራት: " + Math.round(accuracy) + " ሜትር";
 
-            // ትክክለኛነቱ ከ 25 ሜትር በታች ከሆነ ብቻ ቁጠር (ለጥራት)
-            if (accuracy > 25) {
-                statusLine.innerText = "ደካማ የ GPS ሲግናል... ክፍት ቦታ ይውጡ";
+            // ጥራቱ ከ 20 ሜትር በላይ ከሆነ ስህተት ስለሚበዛው አይቆጥርም
+            if (accuracy > 20) return;
+
+            if (isFirstPoint) {
+                lastCoords = { latitude, longitude };
+                isFirstPoint = false;
                 return;
-            } else {
-                statusLine.innerText = "በመለካት ላይ... ✅";
             }
 
-            if (lastCoords) {
-                const distance = calculateDistance(
-                    lastCoords.latitude, lastCoords.longitude,
-                    latitude, longitude
-                );
+            const dist = calculateDistance(lastCoords.latitude, lastCoords.longitude, latitude, longitude);
 
-                // ቆመህ እያለህ የ GPS መንቀጥቀጥ ርቀት እንዳይጨምር (ከ 5 ሜትር በላይ ከሆነ ብቻ ቁጠር)
-                if (distance > 0.005) { 
-                    totalDistance += distance;
-                    kmDisplay.innerText = totalDistance.toFixed(2);
-                }
+            // በሰከንድ ከ 0.002 KM (2 ሜትር) በላይ እና ከ 0.5 KM (500 ሜትር) በታች ከሆነ ብቻ ቁጠር
+            // ይህ በድንገት የሚዘልለውን (0.74km ያለህን) ስህተት ያስቀረዋል
+            if (dist > 0.002 && dist < 0.2) {
+                totalDistance += dist;
+                document.getElementById('kmDisplay').innerText = totalDistance.toFixed(2);
+                lastCoords = { latitude, longitude };
             }
-            lastCoords = { latitude, longitude };
-        }, error => {
-            statusLine.innerText = "ስህተት፡ GPS መብራቱን ያረጋግጡ!";
+        }, err => {
+            console.error(err);
         }, {
             enableHighAccuracy: true,
+            timeout: 10000,
             maximumAge: 0
         });
     }
 
     function stopTracking() {
-        isTracking = false;
         if (watchId) navigator.geolocation.clearWatch(watchId);
-        startBtn.style.display = "block";
-        stopBtn.style.display = "none";
-        statusLine.innerText = "መለካት ቆሟል። ጠቅላላ ርቀት: " + totalDistance.toFixed(2) + " KM";
-        startBtn.innerText = "እንደገና ጀምር";
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('accDisplay').innerText = "ተቋርጧል";
     }
 </script>
 
