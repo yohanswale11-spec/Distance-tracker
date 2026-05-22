@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Distance Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
+        body { background-color: #121212; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; }
+        .card { background: #1e1e1e; width: 90%; max-width: 400px; padding: 30px; border-radius: 30px; text-align: center; border: 1px solid #333; }
+        .distance-display { font-size: 5rem; font-weight: bold; color: #00ff88; margin: 10px 0; }
+        .unit { font-size: 1.5rem; color: #888; margin-bottom: 30px; }
+        #startBtn { background: #00ff88; color: #000; width: 100%; padding: 20px; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 15px; cursor: pointer; }
+        #stopBtn { background: #ff4444; color: white; width: 100%; padding: 20px; font-size: 1.2rem; font-weight: bold; border: none; border-radius: 15px; cursor: pointer; display: none; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>ርቀት መለኪያ</h2>
+    <div class="distance-display" id="kmDisplay">0.00</div>
+    <div class="unit">KM (ኪሎሜትር)</div>
+    <button id="startBtn" onclick="startTracking()">ጀምር (START)</button>
+    <button id="stopBtn" onclick="stopTracking()">አቁም (STOP)</button>
+</div>
+<script>
+    let watchId = null; let totalDistance = 0; let lastCoords = null;
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    function startTracking() {
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'block';
+        watchId = navigator.geolocation.watchPosition(position => {
+            const { latitude, longitude, accuracy } = position.coords;
+            if (accuracy > 30) return;
+            if (lastCoords) {
+                const d = calculateDistance(lastCoords.latitude, lastCoords.longitude, latitude, longitude);
+                if (d > 0.005) { totalDistance += d; document.getElementById('kmDisplay').innerText = totalDistance.toFixed(2); }
+            }
+            lastCoords = { latitude, longitude };
+        }, null, { enableHighAccuracy: true });
+    }
+    function stopTracking() {
+        navigator.geolocation.clearWatch(watchId);
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+    }
+</script>
+</body>
+</html>
